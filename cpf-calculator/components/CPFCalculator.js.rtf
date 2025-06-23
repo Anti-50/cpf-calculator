@@ -1,0 +1,1471 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import React, \{ useState, useEffect \} from 'react';\
+import \{ LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell \} from 'recharts';\
+\
+const CPFCalculator = () => \{\
+  // State variables for user inputs\
+  const [userName, setUserName] = useState('');\
+  const [reportDate, setReportDate] = useState('');\
+  const [currentAge, setCurrentAge] = useState(30);\
+  const [retirementAge, setRetirementAge] = useState(65);\
+  const [monthlySalary, setMonthlySalary] = useState(5000);\
+  const [currentOABalance, setCurrentOABalance] = useState(50000);\
+  const [currentSABalance, setCurrentSABalance] = useState(20000);\
+  const [currentMABalance, setCurrentMABalance] = useState(10000);\
+  const [currentRABalance, setCurrentRABalance] = useState(0);\
+  const [cpfLifeStarted, setCpfLifeStarted] = useState(false);\
+  const [monthlyExpenses, setMonthlyExpenses] = useState(1200);\
+  const [expensesEndAge, setExpensesEndAge] = useState(55);\
+  const [retirementSumType, setRetirementSumType] = useState('FRS');\
+  \
+  // State for unemployment period\
+  const [enableUnemployment, setEnableUnemployment] = useState(false);\
+  const [unemploymentStartAge, setUnemploymentStartAge] = useState(40);\
+  const [unemploymentEndAge, setUnemploymentEndAge] = useState(45);\
+\
+  // CPF Ceiling settings\
+  const [customizeCeiling, setCustomizeCeiling] = useState(false);\
+  const [monthlySalaryCeiling, setMonthlySalaryCeiling] = useState(7400);\
+\
+  // Custom Values\
+  const [enableCustomValues, setEnableCustomValues] = useState(false);\
+  const [basicRetirementSum, setBasicRetirementSum] = useState(106500);\
+  const [fullRetirementSum, setFullRetirementSum] = useState(213000);\
+  const [enhancedRetirementSum, setEnhancedRetirementSum] = useState(426000);\
+  const [medisaveAccountCeiling, setMedisaveAccountCeiling] = useState(75500);\
+\
+  // Interest rates\
+  const OA_INTEREST_RATE = 0.025;\
+  const SA_INTEREST_RATE = 0.04;\
+  const MA_INTEREST_RATE = 0.04;\
+  const RA_INTEREST_RATE = 0.04;\
+\
+  // Projection data\
+  const [balanceProjection, setBalanceProjection] = useState([]);\
+  const [showAllYears, setShowAllYears] = useState(false);\
+  const [displayedYears, setDisplayedYears] = useState([]);\
+  const [selectedCPFLifePlan, setSelectedCPFLifePlan] = useState('Standard');\
+\
+  // Fixed input handler function - allows empty fields\
+  const createInputHandler = (setValue) => (e) => \{\
+    const value = e.target.value;\
+    \
+    // Allow empty string for better UX - don't force to 0\
+    if (value === '') \{\
+      setValue('');\
+      return;\
+    \}\
+    \
+    // Convert to number and validate\
+    const numValue = Number(value);\
+    if (!isNaN(numValue) && isFinite(numValue) && numValue >= 0) \{\
+      setValue(numValue);\
+    \}\
+  \};\
+\
+  // CPF contribution rates by age\
+  const getContributionRates = (age) => \{\
+    if (age <= 35) return \{ employee: 0.20, employer: 0.17, total: 0.37 \};\
+    else if (age <= 45) return \{ employee: 0.20, employer: 0.17, total: 0.37 \};\
+    else if (age <= 50) return \{ employee: 0.20, employer: 0.17, total: 0.37 \};\
+    else if (age <= 55) return \{ employee: 0.20, employer: 0.17, total: 0.37 \};\
+    else if (age <= 60) return \{ employee: 0.17, employer: 0.155, total: 0.325 \};\
+    else if (age <= 65) return \{ employee: 0.115, employer: 0.12, total: 0.235 \};\
+    else if (age <= 70) return \{ employee: 0.075, employer: 0.09, total: 0.165 \};\
+    else return \{ employee: 0.05, employer: 0.075, total: 0.125 \};\
+  \};\
+\
+  // Get CPF contribution allocation percentages based on age\
+  const getAllocationPercentages = (age, raCreated, raMetFRS) => \{\
+    // Official CPF allocation percentages based on age\
+    if (age <= 35) \{\
+      return \{ oa: 0.6217, sa: 0.1621, ma: 0.2162, ra: 0 \};\
+    \} else if (age <= 45) \{\
+      return \{ oa: 0.5677, sa: 0.1891, ma: 0.2432, ra: 0 \};\
+    \} else if (age <= 50) \{\
+      return \{ oa: 0.5136, sa: 0.2162, ma: 0.2702, ra: 0 \};\
+    \} else if (age <= 55) \{\
+      // Corrected SA and MA percentages for age 51-55\
+      return \{ oa: 0.4055, sa: 0.3108, ma: 0.2837, ra: 0 \};\
+    \} else if (age <= 60) \{\
+      // After 55, use RA instead of SA if RA is created\
+      if (raCreated && !raMetFRS) \{\
+        // When RA exists but FRS not met\
+        return \{ oa: 0.3694, sa: 0, ma: 0.3230, ra: 0.3076 \};\
+      \} else \{\
+        // When RA doesn't exist yet OR FRS is already met\
+        return \{ oa: 0.6770, sa: 0, ma: 0.3230, ra: 0 \}; // RA allocation redirected to OA\
+      \}\
+    \} else if (age <= 65) \{\
+      if (raCreated && !raMetFRS) \{\
+        // When RA exists but FRS not met\
+        return \{ oa: 0.149, sa: 0, ma: 0.4468, ra: 0.4042 \};\
+      \} else \{\
+        // When FRS is already met\
+        return \{ oa: 0.5532, sa: 0, ma: 0.4468, ra: 0 \}; // RA allocation redirected to OA\
+      \}\
+    \} else if (age <= 70) \{\
+      if (raCreated && !raMetFRS) \{\
+        // When RA exists but FRS not met\
+        return \{ oa: 0.0607, sa: 0, ma: 0.6363, ra: 0.303 \};\
+      \} else \{\
+        // When FRS is already met\
+        return \{ oa: 0.3637, sa: 0, ma: 0.6363, ra: 0 \}; // RA allocation redirected to OA\
+      \}\
+    \} else \{\
+      if (raCreated && !raMetFRS) \{\
+        // When RA exists but FRS not met\
+        return \{ oa: 0.08, sa: 0, ma: 0.84, ra: 0.08 \};\
+      \} else \{\
+        // When FRS is already met\
+        return \{ oa: 0.16, sa: 0, ma: 0.84, ra: 0 \}; // RA allocation redirected to OA\
+      \}\
+    \}\
+  \};\
+\
+  // Get BHS ceiling (fixed for all ages)\
+  const getBHSCeiling = () => \{\
+    // Always use the fixed medisaveAccountCeiling value\
+    return medisaveAccountCeiling;\
+  \};\
+\
+  // Calculate monthly employee contribution\
+  const calculateEmployeeContribution = () => \{\
+    const rates = getContributionRates(currentAge);\
+    const applicableSalary = Math.min(monthlySalary || 0, monthlySalaryCeiling);\
+    return applicableSalary * rates.employee;\
+  \};\
+\
+  // Calculate monthly employer contribution\
+  const calculateEmployerContribution = () => \{\
+    const rates = getContributionRates(currentAge);\
+    const applicableSalary = Math.min(monthlySalary || 0, monthlySalaryCeiling);\
+    return applicableSalary * rates.employer;\
+  \};\
+\
+  // Calculate take-home pay\
+  const calculateTakeHomePay = () => \{\
+    return (monthlySalary || 0) - calculateEmployeeContribution();\
+  \};\
+\
+  // Generate projection data\
+  useEffect(() => \{\
+    const projection = [];\
+    let oa = currentOABalance;\
+    let sa = currentSABalance;\
+    let ma = currentMABalance;\
+    let ra = currentRABalance;\
+    let raCreated = currentAge >= 55;\
+\
+    const retirementSumAmount = \
+      retirementSumType === 'BRS' ? basicRetirementSum :\
+      retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum;\
+\
+    // Keep track of whether RA has been transferred to CPF LIFE\
+    let isRATransferredToCPFLIFE = false;\
+\
+    // Calculate for each year from current age to 100\
+    for (let age = currentAge; age <= 100; age++) \{\
+      // Check if it's during unemployment period\
+      const isUnemployed = enableUnemployment && age >= unemploymentStartAge && age < unemploymentEndAge;\
+      \
+      // Monthly contribution calculation (if not unemployed)\
+      if (!isUnemployed && age < 80) \{\
+        const rates = getContributionRates(age);\
+        const applicableSalary = Math.min(monthlySalary || 0, monthlySalaryCeiling);\
+        const totalContribution = applicableSalary * rates.total;\
+        \
+        // Get allocation percentages - smart logic based on age and status\
+        let raMetFRS;\
+        if (currentAge >= 65) \{\
+          // For age 65+: Use CPF LIFE status to determine RA status\
+          raMetFRS = cpfLifeStarted || ra >= retirementSumAmount;\
+        \} else \{\
+          // For age 55-64: Auto-determine from RA balance\
+          raMetFRS = ra >= retirementSumAmount;\
+        \}\
+        \
+        const allocations = getAllocationPercentages(age, raCreated, raMetFRS);\
+        \
+        // Calculate allocations\
+        const oaAllocation = allocations.oa * totalContribution;\
+        const saAllocation = allocations.sa * totalContribution;\
+        const maAllocation = allocations.ma * totalContribution;\
+        const raAllocation = allocations.ra * totalContribution;\
+        \
+        // Add monthly contributions (\'d7 12 for annual)\
+        oa += oaAllocation * 12;\
+        sa += saAllocation * 12;\
+        ma += maAllocation * 12;\
+        if (raCreated) ra += raAllocation * 12;\
+        \
+        // Cap MA at ceiling and redirect excess\
+        const bhsCeiling = getBHSCeiling();\
+        if (ma > bhsCeiling) \{\
+          const maExcess = ma - bhsCeiling;\
+          ma = bhsCeiling;\
+          \
+          // If RA is created but hasn't reached FRS, excess MA goes to RA\
+          if (raCreated && ra < retirementSumAmount) \{\
+            ra += maExcess;\
+            \
+            // If adding MA excess pushes RA over the FRS, redirect the remaining to OA\
+            if (ra > retirementSumAmount) \{\
+              oa += (ra - retirementSumAmount);\
+              ra = retirementSumAmount;\
+            \}\
+          \} else \{\
+            // If RA doesn't exist yet (before 55) - MA excess goes to SA\
+            // If RA already reached FRS - MA excess goes to OA\
+            if (age < 55) \{\
+              sa += maExcess;\
+            \} else \{\
+              oa += maExcess;\
+            \}\
+          \}\
+        \}\
+      \}\
+      \
+      // Deduct monthly expenses from OA until expenses end age\
+      if (age < expensesEndAge) \{\
+        oa -= (monthlyExpenses || 0) * 12;\
+        // Ensure OA doesn't go negative\
+        oa = Math.max(0, oa);\
+      \}\
+      \
+      // Add interest only to active accounts\
+      oa *= (1 + OA_INTEREST_RATE);\
+      sa *= (1 + SA_INTEREST_RATE);\
+      ma *= (1 + MA_INTEREST_RATE);\
+      \
+      // Only add interest to RA if it's active (not transferred to CPF LIFE)\
+      if (raCreated && !isRATransferredToCPFLIFE) \{\
+        ra *= (1 + RA_INTEREST_RATE);\
+      \}\
+      \
+      // Create RA at age 55\
+      if (age === 55 && !raCreated) \{\
+        raCreated = true;\
+        \
+        // First, check if SA is enough for retirement sum\
+        if (sa >= retirementSumAmount) \{\
+          // If SA alone exceeds the retirement sum\
+          ra = retirementSumAmount;\
+          // Transfer excess SA to OA\
+          oa += (sa - retirementSumAmount);\
+          sa = 0; // SA is closed at 55\
+        \} else \{\
+          // If SA is not enough, use part of OA\
+          ra = Math.min(sa + oa, retirementSumAmount);\
+          const oaContribution = Math.min(oa, retirementSumAmount - sa);\
+          oa -= oaContribution;\
+          sa = 0; // SA is closed at 55\
+        \}\
+      \}\
+      \
+      // For those below 65: Check if we need to transfer OA to RA at age 65\
+      if (currentAge < 65 && age === 65 && raCreated && !isRATransferredToCPFLIFE) \{\
+        const targetRetirementSum = \
+          retirementSumType === 'BRS' ? basicRetirementSum :\
+          retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum;\
+        \
+        // If RA hasn't met the target, transfer from OA\
+        if (ra < targetRetirementSum) \{\
+          const shortfall = targetRetirementSum - ra;\
+          // Transfer from OA, but keep at least 20% in OA for liquidity\
+          const maxOATransfer = oa * 0.8;\
+          const oaTransfer = Math.min(shortfall, maxOATransfer);\
+          \
+          if (oaTransfer > 0) \{\
+            ra += oaTransfer;\
+            oa -= oaTransfer;\
+          \}\
+        \}\
+      \}\
+      \
+      // Handle CPF LIFE transfer logic\
+      if (age >= 65 && cpfLifeStarted && raCreated) \{\
+        // If CPF LIFE has started, RA should be transferred (set to 0)\
+        ra = 0;\
+        isRATransferredToCPFLIFE = true;\
+      \}\
+      \
+      // For those below 65: Auto-start CPF LIFE at retirement age if target retirement sum is met\
+      const targetRetirementSum = \
+        retirementSumType === 'BRS' ? basicRetirementSum :\
+        retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum;\
+      \
+      if (currentAge < 65 && age >= retirementAge && raCreated && ra >= targetRetirementSum && !isRATransferredToCPFLIFE) \{\
+        ra = 0;\
+        isRATransferredToCPFLIFE = true;\
+      \}\
+      \
+      // Auto-start CPF LIFE at age 70 if not manually started (for current age 65+ only)\
+      if (currentAge >= 65 && age === 70 && raCreated && !cpfLifeStarted && !isRATransferredToCPFLIFE) \{\
+        ra = 0;\
+        isRATransferredToCPFLIFE = true;\
+      \}\
+      \
+      // If RA was transferred to CPF LIFE, ensure it remains at zero\
+      if (isRATransferredToCPFLIFE) \{\
+        ra = 0;\
+      \}\
+      \
+      // After 65, MA has 3% annual withdrawal for healthcare\
+      if (age >= 65) \{\
+        const maWithdrawal = ma * 0.03;\
+        ma -= maWithdrawal;\
+      \}\
+      \
+      // Add this year's balances to projection (round to integers)\
+      projection.push(\{\
+        age,\
+        oa: Math.round(oa),\
+        sa: raCreated ? 0 : Math.round(sa),\
+        ma: Math.round(ma),\
+        ra: Math.round(ra),\
+        total: Math.round(oa + (raCreated ? 0 : sa) + ma + ra)\
+      \});\
+    \}\
+    \
+    setBalanceProjection(projection);\
+  \}, [\
+    currentAge, retirementAge, monthlySalary || 0, currentOABalance || 0, currentSABalance || 0, \
+    currentMABalance || 0, currentRABalance || 0, cpfLifeStarted, monthlyExpenses || 0, expensesEndAge,\
+    retirementSumType, enableUnemployment, unemploymentStartAge, unemploymentEndAge,\
+    customizeCeiling, monthlySalaryCeiling || 0, enableCustomValues,\
+    basicRetirementSum || 0, fullRetirementSum || 0, enhancedRetirementSum || 0, medisaveAccountCeiling || 0\
+  ]);\
+\
+  // Filter displayed years for the table\
+  useEffect(() => \{\
+    if (balanceProjection.length === 0) return;\
+    \
+    if (showAllYears) \{\
+      setDisplayedYears(balanceProjection);\
+    \} else \{\
+      // Show only key years: current age, then every 5 years, plus retirement age\
+      const keyYears = [currentAge];\
+      for (let age = Math.ceil(currentAge/5)*5; age <= 100; age += 5) \{\
+        keyYears.push(age);\
+      \}\
+      if (!keyYears.includes(retirementAge)) \{\
+        keyYears.push(retirementAge);\
+      \}\
+      if (!keyYears.includes(55)) \{\
+        keyYears.push(55);\
+      \}\
+      keyYears.sort((a, b) => a - b);\
+      \
+      setDisplayedYears(balanceProjection.filter(year => keyYears.includes(year.age)));\
+    \}\
+  \}, [balanceProjection, showAllYears, currentAge, retirementAge]);\
+\
+  // Format currency\
+  const formatCurrency = (value) => \{\
+    return new Intl.NumberFormat('en-SG', \{\
+      style: 'currency',\
+      currency: 'SGD',\
+      minimumFractionDigits: 0,\
+      maximumFractionDigits: 0\
+    \}).format(value);\
+  \};\
+\
+  // Calculate monthly CPF LIFE payout estimate\
+  const calculateMonthlyPayout = () => \{\
+    // Find projected balances at retirement age\
+    const retirementEntry = balanceProjection.find(item => item.age === retirementAge);\
+    if (!retirementEntry) return \{ min: 0, max: 0, entrySum: 0 \};\
+    \
+    let cpfLifeEntrySum = 0;\
+    \
+    // Different logic based on retirement age\
+    if (retirementAge < 55) \{\
+      // Before 55: Use total CPF balance (will be used to create RA later)\
+      cpfLifeEntrySum = retirementEntry.total;\
+    \} else if (retirementAge >= 55 && retirementAge < 65) \{\
+      // Between 55-64: Use RA balance\
+      cpfLifeEntrySum = retirementEntry.ra || 0;\
+    \} else \{\
+      // Age 65+: Use RA balance (which includes any OA transfer at 65)\
+      cpfLifeEntrySum = retirementEntry.ra || 0;\
+      \
+      // If RA is still 0 at 65+, something went wrong - use total as fallback\
+      if (cpfLifeEntrySum === 0 && retirementEntry.total > 0) \{\
+        // This might happen if RA was already transferred to CPF LIFE\
+        // Check the age 64 balance instead\
+        const age64Entry = balanceProjection.find(item => item.age === 64);\
+        if (age64Entry && age64Entry.ra > 0) \{\
+          cpfLifeEntrySum = age64Entry.ra;\
+        \} else \{\
+          // Use a portion of total CPF as estimate\
+          cpfLifeEntrySum = retirementEntry.total * 0.5;\
+        \}\
+      \}\
+    \}\
+    \
+    // If still no balance, return zero payouts\
+    if (cpfLifeEntrySum <= 0) return \{ min: 0, max: 0, entrySum: 0 \};\
+    \
+    let minPayout, maxPayout;\
+    \
+    // Updated formulas based on CPF LIFE estimation guidelines\
+    // Using ranges to account for variations in gender, mortality rates, etc.\
+    switch(selectedCPFLifePlan) \{\
+      case 'Basic':\
+        // Basic Plan: ~10-15% lower than Standard Plan\
+        // Central estimate: RA/220 = 0.00454\
+        minPayout = cpfLifeEntrySum * 0.0042;  // ~RA/238\
+        maxPayout = cpfLifeEntrySum * 0.0048;  // ~RA/208\
+        break;\
+      case 'Escalating':\
+        // Escalating Plan: Starts ~20% lower than Standard Plan\
+        // Central estimate: 0.8 \'d7 RA/190 = 0.00421\
+        minPayout = cpfLifeEntrySum * 0.0038;  // ~RA/263\
+        maxPayout = cpfLifeEntrySum * 0.0044;  // ~RA/227\
+        break;\
+      case 'Standard':\
+      default:\
+        // Standard Plan: RA/190 = 0.00526\
+        minPayout = cpfLifeEntrySum * 0.0048;  // ~RA/208\
+        maxPayout = cpfLifeEntrySum * 0.0055;  // ~RA/182\
+    \}\
+    \
+    return \{\
+      min: Math.round(minPayout),\
+      max: Math.round(maxPayout),\
+      entrySum: Math.round(cpfLifeEntrySum)\
+    \};\
+  \};\
+\
+  const payoutEstimate = calculateMonthlyPayout();\
+  \
+  // Prepare data for stacked bar chart\
+  const prepareChartData = () => \{\
+    // Sample at 5-year intervals for cleaner chart\
+    return balanceProjection.filter(item => \
+      item.age === currentAge || item.age % 5 === 0 || item.age === retirementAge\
+    ).map(item => (\{\
+      age: item.age,\
+      "Ordinary Account": item.oa,\
+      "Special Account": item.sa,\
+      "MediSave Account": item.ma,\
+      "Retirement Account": item.ra\
+    \}));\
+  \};\
+\
+  const employeeContribution = calculateEmployeeContribution();\
+  const employerContribution = calculateEmployerContribution();\
+  const takeHomePay = calculateTakeHomePay();\
+  const annualTakeHomePay = takeHomePay * 12;\
+  \
+  return (\
+    <div className="bg-white rounded-lg shadow p-6 max-w-4xl mx-auto">\
+      <div className="text-center mb-8">\
+        <h1 className="text-2xl font-bold text-blue-700 mb-2">Singapore CPF Calculator (2025)</h1>\
+        <p className="text-sm text-gray-500">\'a9 2025 Your Partner in Finance, Chen Hong. All rights reserved.</p>\
+        \
+        \{/* Disclaimer Reference */\}\
+        <div className="mt-4">\
+          <button \
+            onClick=\{() => \{\
+              const disclaimerElement = document.querySelector('.disclaimer-section');\
+              if (disclaimerElement) \{\
+                disclaimerElement.scrollIntoView(\{ behavior: 'smooth', block: 'center' \});\
+              \}\
+            \}\}\
+            className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors duration-200 px-3 py-2 rounded-md text-sm font-medium"\
+          >\
+            <span>\uc0\u55357 \u56523 </span>\
+            <span>Please refer to disclaimer below before using these results</span>\
+            <span>\uc0\u55357 \u56391 </span>\
+          </button>\
+        </div>\
+      </div>\
+      \
+      \{/* Minimalist Personalized Header */\}\
+      <div className="text-sm text-gray-500 mb-4 text-center">\
+        Specially prepared for\{' '\}\
+        <input\
+          type="text"\
+          value=\{userName\}\
+          onChange=\{(e) => setUserName(e.target.value)\}\
+          placeholder="your name"\
+          className="border-0 border-b border-gray-300 px-1 mx-1 focus:outline-none focus:border-gray-600 bg-transparent text-center"\
+        />\
+        \{reportDate && <span className="mx-2">\'95</span>\}\
+        <input\
+          type="text"\
+          value=\{reportDate\}\
+          onChange=\{(e) => setReportDate(e.target.value)\}\
+          placeholder="DD/MMM/YY"\
+          className="border-0 border-b border-gray-300 px-1 mx-1 focus:outline-none focus:border-gray-600 bg-transparent text-center w-20 text-sm"\
+        />\
+      </div>\
+      \
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">\
+        \{/* Basic Information */\}\
+        <div className="bg-white rounded-lg border p-4">\
+          <h2 className="text-xl font-bold mb-4">Basic Information</h2>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Current Age</label>\
+            <input\
+              type="number"\
+              value=\{currentAge\}\
+              onChange=\{createInputHandler(setCurrentAge)\}\
+              className="w-full border rounded px-3 py-2"\
+              min="16"\
+              max="100"\
+            />\
+            <p className="text-sm text-gray-500 mt-1">RA will be created at age 55.</p>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Retirement Age</label>\
+            <input\
+              type="number"\
+              value=\{retirementAge\}\
+              onChange=\{createInputHandler(setRetirementAge)\}\
+              className="w-full border rounded px-3 py-2"\
+              min="55"\
+              max="100"\
+            />\
+            <p className="text-sm text-gray-500 mt-1">Your desired retirement age (CPF LIFE payouts start from age 65)</p>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Monthly Salary</label>\
+            <div className="relative flex items-center">\
+              <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+              <input\
+                type="number"\
+                value=\{monthlySalary\}\
+                onChange=\{createInputHandler(setMonthlySalary)\}\
+                className="w-full border rounded pl-10 pr-3 py-2"\
+                min="0"\
+              />\
+            </div>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Current OA Balance</label>\
+            <div className="relative flex items-center">\
+              <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+              <input\
+                type="number"\
+                value=\{currentOABalance\}\
+                onChange=\{createInputHandler(setCurrentOABalance)\}\
+                className="w-full border rounded pl-10 pr-3 py-2"\
+                min="0"\
+              />\
+            </div>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Current SA Balance</label>\
+            <div className="relative flex items-center">\
+              <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+              <input\
+                type="number"\
+                value=\{currentSABalance\}\
+                onChange=\{createInputHandler(setCurrentSABalance)\}\
+                className="w-full border rounded pl-10 pr-3 py-2"\
+                min="0"\
+              />\
+            </div>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Current MA Balance</label>\
+            <div className="relative flex items-center">\
+              <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+              <input\
+                type="number"\
+                value=\{currentMABalance\}\
+                onChange=\{createInputHandler(setCurrentMABalance)\}\
+                className="w-full border rounded pl-10 pr-3 py-2"\
+                min="0"\
+              />\
+            </div>\
+          </div>\
+          \
+          \{/* Add RA balance input field only if current age is 55+ */\}\
+          \{currentAge >= 55 && (\
+            <>\
+              <div className="mb-4">\
+                <label className="block text-gray-700 mb-1">Current RA Balance</label>\
+                <div className="relative flex items-center">\
+                  <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                  <input\
+                    type="number"\
+                    value=\{currentRABalance\}\
+                    onChange=\{createInputHandler(setCurrentRABalance)\}\
+                    className="w-full border rounded pl-10 pr-3 py-2"\
+                    min="0"\
+                  />\
+                </div>\
+                <p className="text-sm text-gray-500 mt-1">Enter your current RA balance</p>\
+              </div>\
+              \
+              \{/* Show CPF LIFE toggle only for age 65+ */\}\
+              \{currentAge >= 65 && (\
+                <div className="mb-4">\
+                  <div className="flex items-center justify-between">\
+                    <div>\
+                      <label className="block text-gray-700 mb-1">CPF LIFE Payout Status</label>\
+                      <p className="text-sm text-gray-500">Have you started receiving CPF LIFE monthly payouts?</p>\
+                    </div>\
+                    <div className="flex items-center">\
+                      <span className="mr-2 text-sm">Started</span>\
+                      <div \
+                        className=\{`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer $\{cpfLifeStarted ? 'bg-green-600' : 'bg-gray-300'\}`\}\
+                        onClick=\{() => setCpfLifeStarted(!cpfLifeStarted)\}\
+                      >\
+                        <div className=\{`bg-white w-4 h-4 rounded-full shadow-md transform $\{cpfLifeStarted ? 'translate-x-6' : ''\}`\}></div>\
+                      </div>\
+                    </div>\
+                  </div>\
+                  \{cpfLifeStarted && (\
+                    <div className="bg-green-50 border border-green-100 rounded-md p-3 mt-2">\
+                      <p className="text-green-800 text-sm">\
+                        \uc0\u10003  CPF LIFE payouts started. Your RA has been transferred to CPF LIFE. \
+                        All contributions now go to OA/MA only.\
+                      </p>\
+                    </div>\
+                  )\}\
+                  \{!cpfLifeStarted && (\
+                    <div className="bg-blue-50 border border-blue-100 rounded-md p-3 mt-2">\
+                      <p className="text-blue-800 text-sm">\
+                        CPF LIFE payouts not yet started. RA continues to earn interest.\
+                        \{currentRABalance >= (retirementSumType === 'BRS' ? basicRetirementSum : \
+                                            retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum) \
+                          ? ' Since FRS is met, excess MA contributions will go to OA.'\
+                          : ' Contributions will continue to RA until FRS is met.'\}\
+                      </p>\
+                    </div>\
+                  )\}\
+                </div>\
+              )\}\
+              \
+              \{/* Show FRS status info for ages 55-64 */\}\
+              \{currentAge >= 55 && currentAge < 65 && (\
+                <div className="mb-4">\
+                  <div className="bg-blue-50 border border-blue-100 rounded-md p-3">\
+                    <h4 className="font-semibold text-blue-800 mb-1">Full Retirement Sum Status</h4>\
+                    <p className="text-blue-800 text-sm">\
+                      \{currentRABalance >= (retirementSumType === 'BRS' ? basicRetirementSum : \
+                                          retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum) \
+                        ? `\uc0\u10003  FRS met ($\{formatCurrency(currentRABalance)\} \u8805  $\{formatCurrency(retirementSumType === 'BRS' ? basicRetirementSum : \
+                                                                                                retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum)\}). No more contributions to RA.`\
+                        : `FRS not yet met ($\{formatCurrency(currentRABalance)\} < $\{formatCurrency(retirementSumType === 'BRS' ? basicRetirementSum : \
+                                                                                                    retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum)\}). Contributions continue to RA.`\}\
+                    </p>\
+                  </div>\
+                </div>\
+              )\}\
+            </>\
+          )\}\
+        </div>\
+        \
+        \{/* Monthly Expenses and Retirement Sum Type */\}\
+        <div className="bg-white rounded-lg border p-4">\
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Monthly Expenses (OA)</label>\
+            <div className="relative flex items-center">\
+              <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+              <input\
+                type="number"\
+                value=\{monthlyExpenses\}\
+                onChange=\{createInputHandler(setMonthlyExpenses)\}\
+                className="w-full border rounded pl-10 pr-3 py-2"\
+                min="0"\
+              />\
+            </div>\
+          </div>\
+          \
+          <div className="mb-4">\
+            <label className="block text-gray-700 mb-1">Expenses End Age</label>\
+            <input\
+              type="number"\
+              value=\{expensesEndAge\}\
+              onChange=\{createInputHandler(setExpensesEndAge)\}\
+              className="w-full border rounded px-3 py-2"\
+              min=\{currentAge\}\
+              max="100"\
+            />\
+          </div>\
+          \
+          <div className="mb-6">\
+            <label className="block text-gray-700 mb-1">Retirement Sum Type</label>\
+            <select\
+              value=\{retirementSumType\}\
+              onChange=\{(e) => setRetirementSumType(e.target.value)\}\
+              className="w-full border rounded px-3 py-2"\
+            >\
+              <option value="BRS">Basic (BRS)</option>\
+              <option value="FRS">Full (FRS)</option>\
+              <option value="ERS">Enhanced (ERS)</option>\
+            </select>\
+          </div>\
+          \
+          <div className="mt-4">\
+            <h3 className="text-lg font-bold mb-2">Unemployment Period</h3>\
+            <div className="flex items-center justify-between mb-4">\
+              <span>Enable Unemployment Period</span>\
+              <div \
+                className=\{`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer $\{enableUnemployment ? 'bg-blue-600' : 'bg-gray-300'\}`\}\
+                onClick=\{() => setEnableUnemployment(!enableUnemployment)\}\
+              >\
+                <div className=\{`bg-white w-4 h-4 rounded-full shadow-md transform $\{enableUnemployment ? 'translate-x-6' : ''\}`\}></div>\
+              </div>\
+            </div>\
+            \
+            \{enableUnemployment && (\
+              <>\
+                <div className="mb-4">\
+                  <label className="block text-gray-700 mb-1">Unemployment Start Age</label>\
+                  <input\
+                    type="number"\
+                    value=\{unemploymentStartAge\}\
+                    onChange=\{createInputHandler(setUnemploymentStartAge)\}\
+                    className="w-full border rounded px-3 py-2"\
+                    min=\{currentAge\}\
+                    max=\{unemploymentEndAge - 1\}\
+                  />\
+                </div>\
+                \
+                <div className="mb-4">\
+                  <label className="block text-gray-700 mb-1">Unemployment End Age</label>\
+                  <input\
+                    type="number"\
+                    value=\{unemploymentEndAge\}\
+                    onChange=\{createInputHandler(setUnemploymentEndAge)\}\
+                    className="w-full border rounded px-3 py-2"\
+                    min=\{unemploymentStartAge + 1\}\
+                    max="100"\
+                  />\
+                </div>\
+                \
+                <div className="bg-yellow-50 border border-yellow-100 rounded-md p-3 text-yellow-800 text-sm">\
+                  During this period (ages \{unemploymentStartAge\} to \{unemploymentEndAge\}), no CPF contributions will be made. Existing CPF balances will continue to earn interest, and normal account transitions will still occur.\
+                </div>\
+              </>\
+            )\}\
+          </div>\
+        </div>\
+        \
+        \{/* CPF Salary Ceiling */\}\
+        <div className="bg-white rounded-lg border p-4">\
+          <div className="flex items-center justify-between mb-4">\
+            <h3 className="text-lg font-bold">CPF Salary Ceiling</h3>\
+            <div className="flex items-center">\
+              <span className="mr-2">Customize Ceiling</span>\
+              <div \
+                className=\{`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer $\{customizeCeiling ? 'bg-blue-600' : 'bg-gray-300'\}`\}\
+                onClick=\{() => setCustomizeCeiling(!customizeCeiling)\}\
+              >\
+                <div className=\{`bg-white w-4 h-4 rounded-full shadow-md transform $\{customizeCeiling ? 'translate-x-6' : ''\}`\}></div>\
+              </div>\
+            </div>\
+          </div>\
+          \
+          \{customizeCeiling && (\
+            <div className="mb-4">\
+              <label className="block text-gray-700 mb-1">Monthly Salary Ceiling for CPF</label>\
+              <div className="relative flex items-center">\
+                <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                <input\
+                  type="number"\
+                  value=\{monthlySalaryCeiling\}\
+                  onChange=\{createInputHandler(setMonthlySalaryCeiling)\}\
+                  className="w-full border rounded pl-10 pr-3 py-2"\
+                  min="0"\
+                />\
+              </div>\
+            </div>\
+          )\}\
+          \
+          <p className="text-gray-600 mb-4">\
+            The CPF monthly salary ceiling is the maximum portion of your monthly wage that is eligible for CPF contributions. Only the first S$\{monthlySalaryCeiling\} of your monthly salary is subject to CPF contributions.\
+          </p>\
+          \
+          <div className="bg-blue-50 border border-blue-100 rounded-md p-4">\
+            <h4 className="text-lg font-semibold text-blue-700 mb-2">Current Monthly Salary Calculation</h4>\
+            \
+            <div className="grid grid-cols-2 gap-4">\
+              <div className="text-gray-700">Your Monthly Salary:</div>\
+              <div className="text-right font-semibold">\{formatCurrency(monthlySalary || 0)\}</div>\
+              \
+              <div className="text-gray-700">CPF Applicable Salary:</div>\
+              <div className="text-right font-semibold">\{formatCurrency(Math.min(monthlySalary || 0, monthlySalaryCeiling))\}</div>\
+              \
+              <div className="text-gray-700">Employee Contribution:</div>\
+              <div className="text-right font-semibold text-red-600">-\{formatCurrency(employeeContribution)\}</div>\
+              \
+              <div className="text-gray-700">Take-Home Monthly Pay:</div>\
+              <div className="text-right font-semibold text-green-600">\{formatCurrency(takeHomePay)\}</div>\
+            </div>\
+          </div>\
+        </div>\
+        \
+        \{/* Custom Values */\}\
+        <div className="bg-white rounded-lg border p-4">\
+          <div className="flex items-center justify-between mb-4">\
+            <h3 className="text-lg font-bold">Custom Values</h3>\
+            <div className="flex items-center">\
+              <span className="mr-2">Enable Custom Values</span>\
+              <div \
+                className=\{`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer $\{enableCustomValues ? 'bg-blue-600' : 'bg-gray-300'\}`\}\
+                onClick=\{() => setEnableCustomValues(!enableCustomValues)\}\
+              >\
+                <div className=\{`bg-white w-4 h-4 rounded-full shadow-md transform $\{enableCustomValues ? 'translate-x-6' : ''\}`\}></div>\
+              </div>\
+            </div>\
+          </div>\
+          \
+          \{enableCustomValues && (\
+            <>\
+              <div className="mb-4">\
+                <label className="block text-gray-700 mb-1">Basic Retirement Sum (BRS)</label>\
+                <div className="relative flex items-center">\
+                  <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                  <input\
+                    type="number"\
+                    value=\{basicRetirementSum\}\
+                    onChange=\{createInputHandler(setBasicRetirementSum)\}\
+                    className="w-full border rounded pl-10 pr-3 py-2"\
+                    min="0"\
+                  />\
+                </div>\
+              </div>\
+              \
+              <div className="mb-4">\
+                <label className="block text-gray-700 mb-1">Full Retirement Sum (FRS)</label>\
+                <div className="relative flex items-center">\
+                  <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                  <input\
+                    type="number"\
+                    value=\{fullRetirementSum\}\
+                    onChange=\{createInputHandler(setFullRetirementSum)\}\
+                    className="w-full border rounded pl-10 pr-3 py-2"\
+                    min="0"\
+                  />\
+                </div>\
+              </div>\
+              \
+              <div className="mb-4">\
+                <label className="block text-gray-700 mb-1">Enhanced Retirement Sum (ERS)</label>\
+                <div className="relative flex items-center">\
+                  <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                  <input\
+                    type="number"\
+                    value=\{enhancedRetirementSum\}\
+                    onChange=\{createInputHandler(setEnhancedRetirementSum)\}\
+                    className="w-full border rounded pl-10 pr-3 py-2"\
+                    min="0"\
+                  />\
+                </div>\
+              </div>\
+              \
+              <div className="mb-4">\
+                <label className="block text-gray-700 mb-1">MediSave Account Ceiling (BHS)</label>\
+                <div className="relative flex items-center">\
+                  <div className="absolute left-0 pl-3 text-gray-500 flex items-center h-full">S$</div>\
+                  <input\
+                    type="number"\
+                    value=\{medisaveAccountCeiling\}\
+                    onChange=\{createInputHandler(setMedisaveAccountCeiling)\}\
+                    className="w-full border rounded pl-10 pr-3 py-2"\
+                    min="0"\
+                  />\
+                </div>\
+              </div>\
+            </>\
+          )\}\
+          \
+          <p className="text-gray-600">\
+            This sets the maximum amount allowed in your MediSave Account. Excess contributions will flow to your Special Account (if below 55) or Ordinary Account.\
+          </p>\
+        </div>\
+      </div>\
+      \
+      \{/* CPF Balance Projection Chart */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6 mb-6">\
+        <h2 className="text-xl font-bold mb-4">CPF Balance Projection</h2>\
+        \
+        <div className="h-64 md:h-96">\
+          <ResponsiveContainer width="100%" height="100%">\
+            <BarChart data=\{prepareChartData()\} margin=\{\{ top: 20, right: 30, left: 30, bottom: 5 \}\}>\
+              <CartesianGrid strokeDasharray="3 3" />\
+              <XAxis dataKey="age" label=\{\{ value: 'Age', position: 'insideBottom', offset: -5 \}\} />\
+              <YAxis tickFormatter=\{(value) => `S$\{value / 1000\}k`\} \
+                     label=\{\{ value: 'Balance', angle: -90, position: 'insideLeft', offset: -5 \}\} />\
+              <Tooltip formatter=\{(value) => [`S$\{value.toLocaleString()\}`, '']\} />\
+              <Legend />\
+              <Bar dataKey="Ordinary Account" stackId="a" fill="#4299e1" />\
+              <Bar dataKey="Special Account" stackId="a" fill="#68d391" />\
+              <Bar dataKey="MediSave Account" stackId="a" fill="#ed8936" />\
+              <Bar dataKey="Retirement Account" stackId="a" fill="#9f7aea" />\
+            </BarChart>\
+          </ResponsiveContainer>\
+        </div>\
+      </div>\
+      \
+      \{/* Year-by-Year CPF Balances */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6">\
+        <div className="flex justify-between items-center mb-4">\
+          <h2 className="text-xl font-bold">Year-by-Year CPF Balances</h2>\
+          <button \
+            className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-4 rounded"\
+            onClick=\{() => setShowAllYears(!showAllYears)\}\
+          >\
+            \{showAllYears ? "Show Key Years" : "Show All Years"\}\
+          </button>\
+        </div>\
+        \
+        <div className="overflow-x-auto">\
+          <table className="min-w-full bg-white">\
+            <thead className="bg-gray-100">\
+              <tr>\
+                <th className="py-2 px-4 border-b text-left">AGE</th>\
+                <th className="py-2 px-4 border-b text-right">OA BALANCE</th>\
+                <th className="py-2 px-4 border-b text-right">SA BALANCE</th>\
+                <th className="py-2 px-4 border-b text-right">MA BALANCE</th>\
+                <th className="py-2 px-4 border-b text-right">RA BALANCE</th>\
+              </tr>\
+            </thead>\
+            <tbody>\
+              \{displayedYears.map((year) => \{\
+                // Special styling for key ages\
+                const isCurrentAge = year.age === currentAge;\
+                const isRetirementAge = year.age === retirementAge;\
+                const isRA55 = year.age === 55;\
+                \
+                let rowClass = "";\
+                let specialNote = "";\
+                \
+                if (isCurrentAge) \{\
+                  rowClass = "bg-gray-50";\
+                \}\
+                if (isRA55) \{\
+                  rowClass = "bg-blue-50";\
+                  specialNote = "RA created";\
+                \}\
+                if (isRetirementAge) \{\
+                  rowClass = "bg-yellow-50";\
+                  specialNote = "Retirement";\
+                \}\
+                \
+                // Ensure MA balance doesn't exceed ceiling in the display\
+                const maBalance = Math.min(year.ma, medisaveAccountCeiling);\
+                \
+                return (\
+                  <tr key=\{year.age\} className=\{rowClass\}>\
+                    <td className="py-2 px-4 border-b">\
+                      \{year.age\} \{specialNote && <span className="text-blue-600 text-xs ml-1">\{specialNote\}</span>\}\
+                    </td>\
+                    <td className="py-2 px-4 border-b text-right">\
+                      \{year.oa === 0 ? '$0' : formatCurrency(year.oa)\}\
+                    </td>\
+                    <td className="py-2 px-4 border-b text-right">\
+                      \{year.sa === 0 ? '$0' : year.age >= 55 ? 'Account closed' : formatCurrency(year.sa)\}\
+                    </td>\
+                    <td className="py-2 px-4 border-b text-right">\
+                      \{formatCurrency(maBalance)\}\
+                    </td>\
+                    <td className="py-2 px-4 border-b text-right">\
+                      \{year.age < 55 ? 'Not created yet' : \
+                       year.ra === 0 && year.age >= retirementAge ? 'Transferred to CPF LIFE' : \
+                       formatCurrency(year.ra)\}\
+                    </td>\
+                  </tr>\
+                );\
+              \})\}\
+            </tbody>\
+          </table>\
+        </div>\
+      </div>\
+      \
+      \{/* Key Notes - Categorized */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6">\
+        <h2 className="text-xl font-bold mb-6">Key Notes & Important Information</h2>\
+        \
+        \{/* Account Transitions & Age Milestones */\}\
+        <div className="mb-6">\
+          <h3 className="text-lg font-semibold text-blue-700 mb-3 flex items-center">\
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm mr-2">Age Milestones</span>\
+            Account Transitions & Key Ages\
+          </h3>\
+          <ul className="text-gray-600 space-y-2 ml-4">\
+            <li>\'95 <strong>Age 55:</strong> Your RA will be created using funds from your SA and OA balances</li>\
+            <li>\'95 <strong>Age 55:</strong> SA will be closed at age 55 with zero balance</li>\
+            <li>\'95 <strong>Age 65:</strong> Earliest age to start CPF LIFE payouts (if retirement sum is met)</li>\
+            <li>\'95 <strong>Age 65:</strong> If retirement sum not met, up to 80% of OA will transfer to RA to help meet target</li>\
+            <li>\'95 <strong>Age 65-70:</strong> CPF LIFE can be manually started, or automatically starts at 70</li>\
+          </ul>\
+        </div>\
+\
+        \{/* Contribution Rules */\}\
+        <div className="mb-6">\
+          <h3 className="text-lg font-semibold text-green-700 mb-3 flex items-center">\
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm mr-2">Contributions</span>\
+            CPF Contribution Rules\
+          </h3>\
+          <ul className="text-gray-600 space-y-2 ml-4">\
+            <li>\'95 Mandatory CPF contributions continue to RA only until you reach your selected retirement sum (BRS/FRS/ERS)</li>\
+            <li>\'95 Once your RA hits the target retirement sum, all further contributions are redirected to OA</li>\
+            <li>\'95 CPF contributions are capped at a monthly salary of \{formatCurrency(monthlySalaryCeiling)\}</li>\
+            <li>\'95 When MA reaches its ceiling, excess contributions go directly to OA</li>\
+            \{enableUnemployment && (\
+              <li className="text-blue-600">\'95 <strong>Special Period:</strong> No CPF contributions will be made during the unemployment period (ages \{unemploymentStartAge\} to \{unemploymentEndAge\})</li>\
+            )\}\
+          </ul>\
+        </div>\
+\
+        \{/* Interest Rates & Account Limits */\}\
+        <div className="mb-6">\
+          <h3 className="text-lg font-semibold text-purple-700 mb-3 flex items-center">\
+            <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm mr-2">Rates & Limits</span>\
+            Interest Rates & Account Ceilings\
+          </h3>\
+          <ul className="text-gray-600 space-y-2 ml-4">\
+            <li>\'95 <strong>Interest rates:</strong> OA (2.5%), SA (4%), MA (4%), RA (4%)</li>\
+            <li>\'95 <strong>BHS Ceiling:</strong> For those aged 65+ in 2025, the Basic Healthcare Sum (BHS) of \{formatCurrency(medisaveAccountCeiling)\} is fixed for life</li>\
+            <li>\'95 <strong>BHS Growth:</strong> For those below 65, the BHS ceiling will increase annually in reality but is fixed at \{formatCurrency(medisaveAccountCeiling)\} in this simulator</li>\
+            <li>\'95 <strong>Healthcare Withdrawals:</strong> After age 65, MA balance receives 4% interest and then has a 3% annual withdrawal for healthcare expenses</li>\
+          </ul>\
+        </div>\
+\
+        \{/* CPF LIFE & Retirement */\}\
+        <div className="mb-6">\
+          <h3 className="text-lg font-semibold text-orange-700 mb-3 flex items-center">\
+            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm mr-2">Retirement</span>\
+            CPF LIFE & Retirement Planning\
+          </h3>\
+          <ul className="text-gray-600 space-y-2 ml-4">\
+            <li>\'95 CPF LIFE payouts can only start from age 65 onwards, even if you retire earlier</li>\
+            <li>\'95 If retirement sum is met at age 65, payouts can begin immediately at 65</li>\
+            <li>\'95 If retirement sum is not met at age 65, RA continues to receive contributions until target is reached</li>\
+            <li>\'95 Estimated payouts are shown based on actual RA balance, even if below target retirement sum</li>\
+          </ul>\
+        </div>\
+\
+        \{/* Personal Financial Planning */\}\
+        <div>\
+          <h3 className="text-lg font-semibold text-red-700 mb-3 flex items-center">\
+            <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm mr-2">Your Plan</span>\
+            Personal Financial Settings\
+          </h3>\
+          <ul className="text-gray-600 space-y-2 ml-4">\
+            <li>\'95 <strong>Monthly Expenses:</strong> \{formatCurrency(monthlyExpenses)\} are deducted from OA until age \{expensesEndAge\}</li>\
+            <li>\'95 <strong>Retirement Target:</strong> You've selected \{retirementSumType === 'BRS' ? 'Basic Retirement Sum (BRS)' : retirementSumType === 'FRS' ? 'Full Retirement Sum (FRS)' : 'Enhanced Retirement Sum (ERS)'\} as your retirement goal</li>\
+          </ul>\
+        </div>\
+      </div>\
+      \
+      \{/* CPF Contribution Breakdown */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6">\
+        <h2 className="text-xl font-bold mb-4">CPF Contribution Breakdown</h2>\
+        <p className="mb-2">Current Age: \{currentAge\}</p>\
+        \
+        <div className="bg-gray-50 p-4 rounded mb-4">\
+          <div className="grid grid-cols-2 gap-2">\
+            <div>Monthly Salary:</div>\
+            <div className="text-right">\{formatCurrency(monthlySalary || 0)\}</div>\
+            \
+            <div>CPF Applicable Salary:</div>\
+            <div className="text-right">\{formatCurrency(Math.min(monthlySalary || 0, monthlySalaryCeiling))\}</div>\
+            \
+            <div>Employee Contribution:</div>\
+            <div className="text-right text-red-600">-\{formatCurrency(employeeContribution)\}</div>\
+            \
+            <div>Employer Contribution:</div>\
+            <div className="text-right text-green-600">+\{formatCurrency(employerContribution)\}</div>\
+            \
+            <div className="font-semibold">Take-Home Pay (Annual):</div>\
+            <div className="text-right font-semibold text-green-600">\{formatCurrency(annualTakeHomePay)\}</div>\
+          </div>\
+        </div>\
+        \
+        <h3 className="font-bold mb-2">CPF Contribution Rates</h3>\
+        <div className="overflow-x-auto">\
+          <table className="min-w-full bg-white border">\
+            <thead className="bg-gray-100">\
+              <tr>\
+                <th className="py-2 px-4 border-b text-left">Age Group</th>\
+                <th className="py-2 px-4 border-b text-right">Employee</th>\
+                <th className="py-2 px-4 border-b text-right">Employer</th>\
+                <th className="py-2 px-4 border-b text-right">Total</th>\
+              </tr>\
+            </thead>\
+            <tbody>\
+              <tr className=\{currentAge <= 35 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">35 & below \{currentAge <= 35 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">20.0%</td>\
+                <td className="py-2 px-4 border-b text-right">17.0%</td>\
+                <td className="py-2 px-4 border-b text-right">37.0%</td>\
+              </tr>\
+              <tr className=\{currentAge > 35 && currentAge <= 45 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 35 - 45 \{currentAge > 35 && currentAge <= 45 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">20.0%</td>\
+                <td className="py-2 px-4 border-b text-right">17.0%</td>\
+                <td className="py-2 px-4 border-b text-right">37.0%</td>\
+              </tr>\
+              <tr className=\{currentAge > 45 && currentAge <= 50 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 45 - 50 \{currentAge > 45 && currentAge <= 50 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">20.0%</td>\
+                <td className="py-2 px-4 border-b text-right">17.0%</td>\
+                <td className="py-2 px-4 border-b text-right">37.0%</td>\
+              </tr>\
+              <tr className=\{currentAge > 50 && currentAge <= 55 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 50 - 55 \{currentAge > 50 && currentAge <= 55 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">20.0%</td>\
+                <td className="py-2 px-4 border-b text-right">17.0%</td>\
+                <td className="py-2 px-4 border-b text-right">37.0%</td>\
+              </tr>\
+              <tr className=\{currentAge > 55 && currentAge <= 60 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 55 - 60 \{currentAge > 55 && currentAge <= 60 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">17.0%</td>\
+                <td className="py-2 px-4 border-b text-right">15.5%</td>\
+                <td className="py-2 px-4 border-b text-right">32.5%</td>\
+              </tr>\
+              <tr className=\{currentAge > 60 && currentAge <= 65 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 60 - 65 \{currentAge > 60 && currentAge <= 65 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">11.5%</td>\
+                <td className="py-2 px-4 border-b text-right">12.0%</td>\
+                <td className="py-2 px-4 border-b text-right">23.5%</td>\
+              </tr>\
+              <tr className=\{currentAge > 65 && currentAge <= 70 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 65 - 70 \{currentAge > 65 && currentAge <= 70 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">7.5%</td>\
+                <td className="py-2 px-4 border-b text-right">9.0%</td>\
+                <td className="py-2 px-4 border-b text-right">16.5%</td>\
+              </tr>\
+              <tr className=\{currentAge > 70 ? "bg-blue-50" : ""\}>\
+                <td className="py-2 px-4 border-b">Above 70 \{currentAge > 70 && <span className="text-blue-600 text-xs ml-1">Current</span>\}</td>\
+                <td className="py-2 px-4 border-b text-right">5.0%</td>\
+                <td className="py-2 px-4 border-b text-right">7.5%</td>\
+                <td className="py-2 px-4 border-b text-right">12.5%</td>\
+              </tr>\
+            </tbody>\
+          </table>\
+        </div>\
+      </div>\
+      \
+      \{/* Settings Summary */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6">\
+        <h2 className="text-xl font-bold mb-4">Settings Summary</h2>\
+        \
+        <div className="bg-white p-4 rounded-lg border mb-4">\
+          <h3 className="font-bold mb-2">Retirement Sums</h3>\
+          <div className="grid grid-cols-2 gap-2">\
+            <div>Basic Retirement Sum (BRS):</div>\
+            <div className="text-right">\{formatCurrency(basicRetirementSum)\}</div>\
+            \
+            <div>Full Retirement Sum (FRS):</div>\
+            <div className="text-right">\{formatCurrency(fullRetirementSum)\}</div>\
+            \
+            <div>Enhanced Retirement Sum (ERS):</div>\
+            <div className="text-right">\{formatCurrency(enhancedRetirementSum)\}</div>\
+          </div>\
+        </div>\
+        \
+        <div className="bg-white p-4 rounded-lg border mb-4">\
+          <h3 className="font-bold mb-2">System Parameters</h3>\
+          <div className="grid grid-cols-2 gap-2">\
+            <div>Basic Healthcare Sum (BHS):</div>\
+            <div className="text-right">\{formatCurrency(medisaveAccountCeiling)\}</div>\
+            \
+            <div>CPF Monthly Salary Ceiling:</div>\
+            <div className="text-right">\{formatCurrency(monthlySalaryCeiling || 0)\}</div>\
+            \
+            <div>MA Ceiling at Age 65+:</div>\
+            <div className="text-right">\{formatCurrency(medisaveAccountCeiling || 0)\}</div>\
+          </div>\
+        </div>\
+        \
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">\
+          <h3 className="font-bold text-blue-700 mb-4 flex items-center">\
+            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-full text-sm mr-2">\{userName ? `$\{userName\}'s Results` : 'Your Results'\}</span>\
+            Personalized CPF Planning Insights\
+          </h3>\
+          \
+          \{/* Financial Summary */\}\
+          <div className="mb-4">\
+            <h4 className="font-semibold text-blue-800 mb-2">\uc0\u55357 \u56496  Financial Summary</h4>\
+            <ul className="space-y-2 text-gray-700 ml-4">\
+              <li>\'95 \{userName ? `$\{userName\}'s CPF` : 'Your CPF'\} balance at retirement age (\{retirementAge\}) will be approximately <strong>\{formatCurrency(\
+                balanceProjection.find(item => item.age === retirementAge)?.total || 0\
+              )\}</strong></li>\
+              <li>\'95 \{userName ? `$\{userName\}'s annual` : 'Your annual'\} take-home pay is <strong>\{formatCurrency(annualTakeHomePay)\}</strong> after CPF contributions</li>\
+            </ul>\
+          </div>\
+\
+          \{/* Wealth Building Strategy */\}\
+          <div className="mb-4">\
+            <h4 className="font-semibold text-blue-800 mb-2">\uc0\u55357 \u56520  Wealth Building Strategy</h4>\
+            <ul className="space-y-2 text-gray-700 ml-4">\
+              <li>\'95 Your OA and SA contributions will help you build wealth for retirement and housing needs</li>\
+              <li>\'95 At age 55, your SA and part of your OA will be transferred to create your RA up to your selected retirement sum</li>\
+              <li>\'95 After expenses end at age \{expensesEndAge\}, your OA can grow more rapidly</li>\
+            </ul>\
+          </div>\
+\
+          \{/* Healthcare Planning */\}\
+          <div>\
+            <h4 className="font-semibold text-blue-800 mb-2">\uc0\u55356 \u57317  Healthcare Coverage</h4>\
+            <ul className="space-y-2 text-gray-700 ml-4">\
+              <li>\'95 MA account is capped at <strong>\{formatCurrency(medisaveAccountCeiling || 0)\}</strong> to ensure adequate healthcare coverage</li>\
+            </ul>\
+          </div>\
+        </div>\
+      </div>\
+      \
+      \{/* CPF LIFE Payout Information */\}\
+      <div className="bg-white rounded-lg border p-4 mt-6">\
+        <h2 className="text-xl font-bold mb-4">CPF LIFE Payout Information</h2>\
+        \
+        <div className="bg-white p-4 rounded-lg border mb-4">\
+          <h3 className="font-bold mb-2">Selected Retirement Plan</h3>\
+          <div className="grid grid-cols-2 gap-2">\
+            <div>Retirement Sum Type:</div>\
+            <div className="text-right font-semibold">\
+              \{retirementSumType === 'BRS' ? 'Basic Retirement Sum (BRS)' : \
+               retirementSumType === 'FRS' ? 'Full Retirement Sum (FRS)' : \
+               'Enhanced Retirement Sum (ERS)'\}\
+            </div>\
+            \
+            <div>Retirement Sum Amount:</div>\
+            <div className="text-right text-green-600 font-semibold">\
+              \{formatCurrency(\
+                retirementSumType === 'BRS' ? basicRetirementSum : \
+                retirementSumType === 'FRS' ? fullRetirementSum : \
+                enhancedRetirementSum\
+              )\}\
+            </div>\
+            \
+            <div>Retirement Age:</div>\
+            <div className="text-right">\{retirementAge\}</div>\
+          </div>\
+        </div>\
+        \
+        <div className="bg-white p-4 rounded-lg border mb-4">\
+          <h3 className="font-bold mb-2">Estimated Monthly Payouts</h3>\
+          \
+          <div className="mb-3">\
+            <label className="block text-gray-700 mb-1">CPF LIFE Plan:</label>\
+            <select\
+              value=\{selectedCPFLifePlan\}\
+              onChange=\{(e) => setSelectedCPFLifePlan(e.target.value)\}\
+              className="w-full border rounded px-3 py-2"\
+            >\
+              <option value="Basic">Basic Plan</option>\
+              <option value="Standard">Standard Plan</option>\
+              <option value="Escalating">Escalating Plan</option>\
+            </select>\
+          </div>\
+          \
+          \{/* Show retirement sum status */\}\
+          \{balanceProjection.length > 0 && (() => \{\
+            const targetSum = retirementSumType === 'BRS' ? basicRetirementSum :\
+                            retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum;\
+            \
+            // For status check, we need to look at the right age\
+            let raForStatus = 0;\
+            let statusAge = 65; // We check status at age 65\
+            \
+            if (retirementAge < 65) \{\
+              // If retiring before 65, check at 65 (when OA transfer happens)\
+              const age65Entry = balanceProjection.find(item => item.age === 65);\
+              raForStatus = age65Entry?.ra || 0;\
+            \} else \{\
+              // If retiring at 65+, check at retirement age\
+              const retirementEntry = balanceProjection.find(item => item.age === retirementAge);\
+              raForStatus = retirementEntry?.ra || 0;\
+              statusAge = retirementAge;\
+              \
+              // If RA is 0 (transferred to CPF LIFE), check the year before\
+              if (raForStatus === 0 && retirementAge > 55) \{\
+                const previousEntry = balanceProjection.find(item => item.age === retirementAge - 1);\
+                raForStatus = previousEntry?.ra || 0;\
+              \}\
+            \}\
+            \
+            const isSumMet = raForStatus >= targetSum;\
+            \
+            return (\
+              <div className=\{`mb-4 p-3 rounded-lg border $\{isSumMet ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'\}`\}>\
+                <p className=\{`text-sm font-semibold $\{isSumMet ? 'text-green-800' : 'text-yellow-800'\}`\}>\
+                  \{retirementSumType\} Status at Age \{statusAge\}: \{isSumMet ? '\uc0\u10003  Met' : 'Not Met'\}\
+                </p>\
+                <p className=\{`text-sm $\{isSumMet ? 'text-green-700' : 'text-yellow-700'\}`\}>\
+                  RA Balance: \{formatCurrency(raForStatus)\} / Target: \{formatCurrency(targetSum)\}\
+                </p>\
+                \{!isSumMet && (\
+                  <p className="text-sm text-yellow-700 mt-1">\
+                    \{statusAge === 65 ? \
+                      'Note: This includes any OA transfer at age 65. Contributions will continue until ' + retirementSumType + ' is met.' :\
+                      'Note: Contributions will continue until ' + retirementSumType + ' is met.'\}\
+                  </p>\
+                )\}\
+              </div>\
+            );\
+          \})()\}\
+          \
+          <div className="grid grid-cols-2 gap-2 mt-4">\
+            <div>Based on \{selectedCPFLifePlan\} Plan:</div>\
+            <div className="text-right"></div>\
+            \
+            <div>Monthly Payout Range:</div>\
+            <div className="text-right text-green-600 font-semibold">\
+              \{formatCurrency(payoutEstimate.min)\} - \{formatCurrency(payoutEstimate.max)\}\
+            </div>\
+            \
+            <div>Payout Start Age:</div>\
+            <div className="text-right">\
+              \{(() => \{\
+                const targetSum = retirementSumType === 'BRS' ? basicRetirementSum :\
+                                retirementSumType === 'FRS' ? fullRetirementSum : enhancedRetirementSum;\
+                \
+                // CPF LIFE cannot start before age 65\
+                const minimumStartAge = 65;\
+                \
+                // Check if sum is met at age 65 (after OA transfer)\
+                const age65Entry = balanceProjection.find(item => item.age === 65);\
+                const raAt65 = age65Entry?.ra || 0;\
+                \
+                // If retirement sum is met at 65, CPF LIFE can start at 65\
+                if (raAt65 >= targetSum) \{\
+                  return minimumStartAge;\
+                \}\
+                \
+                // If retiring after 65, check if sum is met at retirement age\
+                if (retirementAge > 65) \{\
+                  const retirementEntry = balanceProjection.find(item => item.age === retirementAge);\
+                  const raAtRetirement = retirementEntry?.ra || 0;\
+                  \
+                  // Check the year before if RA is 0 (might be transferred already)\
+                  let checkRA = raAtRetirement;\
+                  if (checkRA === 0) \{\
+                    const prevEntry = balanceProjection.find(item => item.age === retirementAge - 1);\
+                    checkRA = prevEntry?.ra || 0;\
+                  \}\
+                  \
+                  if (checkRA >= targetSum) \{\
+                    return retirementAge;\
+                  \}\
+                \}\
+                \
+                // If not met by 65 or retirement age, find when it will be met\
+                const futureEntry = balanceProjection.find(item => \
+                  item.age >= minimumStartAge && item.ra >= targetSum\
+                );\
+                \
+                if (futureEntry) \{\
+                  return futureEntry.age;\
+                \}\
+                \
+                // If never met, still show Age 65 as that's when CPF LIFE can start\
+                return minimumStartAge;\
+              \})()\}\
+            </div>\
+            \
+            <div>Estimated CPF LIFE Entry Sum:</div>\
+            <div className="text-right">\{formatCurrency(payoutEstimate.entrySum)\}</div>\
+            \
+            <div>Payout Duration:</div>\
+            <div className="text-right text-blue-600">Lifelong</div>\
+          </div>\
+          \
+          <p className="text-gray-500 text-sm mt-4">\
+            Note: Monthly payouts are estimated based on your projected RA balance at retirement age. Actual payouts depend on prevailing interest rates and the CPF LIFE plan chosen. CPF LIFE payouts can only start from age 65 onwards.\
+          </p>\
+          \
+          <div className="bg-gray-50 p-3 rounded-lg mt-3">\
+            <p className="text-xs text-gray-600">\
+              <strong>Estimation Formula References:</strong><br/>\
+              \'95 Standard Plan: RA Balance \'f7 190 (approx. 0.48% - 0.55% monthly)<br/>\
+              \'95 Basic Plan: RA Balance \'f7 220 (approx. 0.42% - 0.48% monthly)<br/>\
+              \'95 Escalating Plan: 0.8 \'d7 Standard Plan initial payout<br/>\
+              These are simplified estimates. Use the official CPF LIFE Estimator for precise calculations.\
+            </p>\
+          </div>\
+        </div>\
+        \
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">\
+          <h3 className="font-bold text-yellow-800 mb-2">CPF LIFE Plan Options</h3>\
+          \
+          <div className="space-y-4">\
+            <div className="bg-white p-3 rounded-lg border border-gray-200">\
+              <h4 className="font-bold text-center mb-2">Basic Plan</h4>\
+              <ul className="space-y-1">\
+                <li>\'95 Lower monthly payouts</li>\
+                <li>\'95 Higher bequest for beneficiaries</li>\
+                <li>\'95 Good if you have other sources of retirement income</li>\
+              </ul>\
+            </div>\
+            \
+            <div className=\{`bg-white p-3 rounded-lg border $\{selectedCPFLifePlan === 'Standard' ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200'\}`\}>\
+              <h4 className="font-bold text-center mb-2">Standard Plan (Default)</h4>\
+              <ul className="space-y-1">\
+                <li>\'95 Balanced monthly payouts</li>\
+                <li>\'95 Moderate bequest for beneficiaries</li>\
+                <li>\'95 Recommended for most retirees</li>\
+              </ul>\
+            </div>\
+            \
+            <div className="bg-white p-3 rounded-lg border border-gray-200">\
+              <h4 className="font-bold text-center mb-2">Escalating Plan</h4>\
+              <ul className="space-y-1">\
+                <li>\'95 Payouts increase by 2% annually</li>\
+                <li>\'95 Lower initial monthly payout</li>\
+                <li>\'95 Protection against long-term inflation</li>\
+              </ul>\
+            </div>\
+          </div>\
+          \
+          <p className="text-center mt-4">\
+            More details on CPF LIFE plans can be found on the official <a href="#" className="text-blue-600 hover:underline">CPF LIFE page</a>.\
+          </p>\
+        </div>\
+      </div>\
+      \
+      <div className="text-center text-gray-500 text-sm mt-6">\
+        \'a9 2025 Your Partner in Finance Chen Hong. All rights reserved.\
+      </div>\
+      \
+      \{/* Disclaimer */\}\
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6 disclaimer-section">\
+        <h3 className="font-bold text-yellow-800 mb-3">\uc0\u9888 \u65039  Important Disclaimer</h3>\
+        <p className="text-yellow-800 text-sm leading-relaxed">\
+          By using this calculator, you agree that the results shown are approximate projections based on current CPF rules and your inputs. This calculator assumes constant salary, stable CPF policies, fixed interest rates, and regular employment throughout your career. Real-life results will differ due to salary changes, policy updates, economic fluctuations, and personal circumstances. These projections are for planning purposes only and should not replace professional financial advice. Always verify with official CPF Board resources and consider consulting a financial advisor for personalized retirement planning.\
+        </p>\
+        <div className="mt-3 pt-3 border-t border-yellow-300">\
+          <p className="text-yellow-700 text-xs">\
+            <strong>CPF LIFE Payout Estimates:</strong> The monthly payout calculations use simplified formulas derived from publicly available CPF data. Actual payouts are determined by CPF Board using complex actuarial calculations that consider mortality rates, interest projections, and other factors not captured in this calculator.\
+          </p>\
+        </div>\
+      </div>\
+      \
+      <div className="mt-8 mb-4 text-center">\
+        <button \
+          onClick=\{() => \{\
+            window.print();\
+          \}\}\
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md"\
+        >\
+          Print / Save as PDF\
+        </button>\
+      </div>\
+    </div>\
+  );\
+\};\
+\
+export default CPFCalculator;}

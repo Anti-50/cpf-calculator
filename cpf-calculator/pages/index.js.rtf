@@ -1,29 +1,94 @@
-{\rtf1\ansi\ansicpg1252\cocoartf2822
-\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Regular;}
-{\colortbl;\red255\green255\blue255;\red184\green93\blue213;\red36\green36\blue35;\red155\green162\blue177;
-\red136\green185\blue102;\red81\green157\blue235;\red197\green136\blue83;}
-{\*\expandedcolortbl;;\cssrgb\c77647\c47059\c86667;\cssrgb\c18824\c18824\c18039;\cssrgb\c67059\c69804\c74902;
-\cssrgb\c59608\c76471\c47451;\cssrgb\c38039\c68627\c93725;\cssrgb\c81961\c60392\c40000;}
-\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
-\deftab720
-\pard\pardeftab720\partightenfactor0
+import Head from 'next/head';
 
-\f0\fs28 \cf2 \cb3 \expnd0\expndtw0\kerning0
-\outl0\strokewidth0 \strokec2 import\cf4 \cb3 \strokec4  Head \cf2 \cb3 \strokec2 from\cf4 \cb3 \strokec4  \cf5 \cb3 \strokec5 'next/head'\cf4 \cb3 \strokec4 ;\
-\cf2 \cb3 \strokec2 import\cf4 \cb3 \strokec4  CPFCalculator \cf2 \cb3 \strokec2 from\cf4 \cb3 \strokec4  \cf5 \cb3 \strokec5 '../components/CPFCalculator'\cf4 \cb3 \strokec4 ;\
-\
-\cf2 \cb3 \strokec2 export\cf4 \cb3 \strokec4  \cf2 \cb3 \strokec2 default\cf4 \cb3 \strokec4  \cf2 \cb3 \strokec2 function\cf4 \cb3 \strokec4  \cf6 \cb3 \strokec6 Home\cf4 \cb3 \strokec4 () \{\
-  \cf2 \cb3 \strokec2 return\cf4 \cb3 \strokec4  (\
-    \cf6 \cb3 \strokec6 <>\cf4 \cb3 \strokec4 \
-      \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 Head\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 \
-        \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 title\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 Singapore \cf7 \cb3 \strokec7 CPF\cf4 \cb3 \strokec4  Calculator \cf7 \cb3 \strokec7 2025\cf6 \strokec6 </\cf4 \cb3 \strokec4 title\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 \
-        \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 meta name\cf6 \cb3 \strokec6 =\cf5 \strokec5 "description"\cf4 \cb3 \strokec4  content\cf6 \cb3 \strokec6 =\cf5 \strokec5 "Calculate your Singapore CPF projections and retirement planning"\cf4 \cb3 \strokec4  \cf6 \cb3 \strokec6 />\cf4 \cb3 \strokec4 \
-        \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 meta name\cf6 \cb3 \strokec6 =\cf5 \strokec5 "viewport"\cf4 \cb3 \strokec4  content\cf6 \cb3 \strokec6 =\cf5 \strokec5 "width=device-width, initial-scale=1"\cf4 \cb3 \strokec4  \cf6 \cb3 \strokec6 />\cf4 \cb3 \strokec4 \
-        \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 link rel\cf6 \cb3 \strokec6 =\cf5 \strokec5 "icon"\cf4 \cb3 \strokec4  href\cf6 \cb3 \strokec6 =\cf5 \strokec5 "/favicon.ico"\cf4 \cb3 \strokec4  \cf6 \cb3 \strokec6 />\cf4 \cb3 \strokec4 \
-      \cf6 \cb3 \strokec6 </\cf4 \cb3 \strokec4 Head\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 \
-      \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 main\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 \
-        \cf6 \cb3 \strokec6 <\cf4 \cb3 \strokec4 CPFCalculator \cf6 \cb3 \strokec6 />\cf4 \cb3 \strokec4 \
-      \cf6 \cb3 \strokec6 </\cf4 \cb3 \strokec4 main\cf6 \cb3 \strokec6 >\cf4 \cb3 \strokec4 \
-    \cf6 \cb3 \strokec6 </>\cf4 \cb3 \strokec4 \
-  );\
-\}}
+export default function Home() {
+  return (
+    <>
+      <Head>
+        <title>Singapore CPF Calculator 2025</title>
+        <meta name="description" content="Calculate your Singapore CPF projections and retirement planning" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+      <main className="min-h-screen bg-gray-100 py-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-blue-700 mb-2">
+              Singapore CPF Calculator (2025)
+            </h1>
+            <p className="text-lg text-gray-600">
+              Your Professional CPF Planning Tool
+            </p>
+            <p className="text-sm text-gray-500 mt-4">
+              © 2025 Your Partner in Finance, Chen Hong. All rights reserved.
+            </p>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-green-800 mb-3">
+              🎉 Deployment Successful!
+            </h2>
+            <p className="text-green-700">
+              Your CPF Calculator is now live on the internet! 
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-bold text-blue-800 mb-2">📊 Features</h3>
+              <ul className="text-blue-700 space-y-1">
+                <li>• CPF Balance Projections</li>
+                <li>• Interactive Charts</li>
+                <li>• CPF LIFE Calculations</li>
+                <li>• Retirement Planning</li>
+              </ul>
+            </div>
+            
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="font-bold text-purple-800 mb-2">💼 Professional Tools</h3>
+              <ul className="text-purple-700 space-y-1">
+                <li>• Personalized Reports</li>
+                <li>• Print/Save PDF</li>
+                <li>• Multiple Scenarios</li>
+                <li>• Expert Analysis</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-xl font-bold text-blue-800 mb-4">
+              How This Calculator Helps Your Clients
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold text-blue-700 mb-2">Before (Traditional)</h4>
+                <ul className="text-blue-600 space-y-1 text-sm">
+                  <li>• Manual calculations</li>
+                  <li>• Time-consuming consultations</li>
+                  <li>• Static reports</li>
+                  <li>• Limited scenarios</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-green-700 mb-2">After (With Your Calculator)</h4>
+                <ul className="text-green-600 space-y-1 text-sm">
+                  <li>• Instant projections</li>
+                  <li>• Interactive exploration</li>
+                  <li>• Visual charts</li>
+                  <li>• Unlimited scenarios</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 text-center">
+            <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors">
+              Start Using Calculator (Coming Soon)
+            </button>
+            <p className="text-gray-500 text-sm mt-2">
+              Full calculator features will be enabled shortly
+            </p>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
